@@ -64,9 +64,6 @@ The following functions are required for performing basic CCD correction:
 -cosmic ray cleaning
 -distortion correction 
 
-More advanced features would include:
--astrometric corrections
-
 '''
 
 
