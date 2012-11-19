@@ -188,7 +188,13 @@ coef=iterfit(x, y, function='polynomial', order=3)
 #and/or convergernce limit
 coef=iterfit(data, function='polynomial', order=3)
 
-#combine a set of NDData objects
+#combine a set of NDData objects.  Combining objects will need to handle how to
+#combine the error dat and masks as well.  It should have different methods for
+#combining the data (average, median) and for rejection data (None, sigma clip, 
+#ccdclip, minmax).  Rejected pixels should be reflected in the final bad pixel
+#maps.   Methods for scaling the data and weighting the data can also be 
+#included.   The task should also handle any memories issues that will occur to
+#dealing with large file sizes.
 combine([ccddata, ccddata2], method='average', reject=None, **kwargs)
 
 #re-sample the data to different binnings (either larger or smaller
@@ -198,3 +204,5 @@ ccddata=rebin(ccddata, binning=(2,2))
 #question--add convience functions for image shifting and rotation?
 #should udpate WCS although that would actually be the prefered method
 ccddata=transform(ccddata, transform, conserve_flux=True)
+
+
