@@ -83,6 +83,10 @@ ccddata.wcs=None
 ccddata.meta={}
 ccddata.units=u.adu  #is this valid?  
 
+#The ccddata class should have a functional form to create a CCDData
+#object directory from a fits file
+ccddata=fromFITS('img.fits')
+
 # Functional Requirements
 # ----------------------
 # A number of these different fucntions are convenient functions that
@@ -102,7 +106,7 @@ ccddata.units=u.adu  #is this valid?
 #and a unit?  Or a scalar, unit and an error?   ie, This 
 #could actually be handled by the gain and readnoise being
 #specified as an NDData object   
-ccddata.createvariance(gain=1.0, readnoise=5.0)
+ccddata=createvariance(ccddata, gain=1.0, readnoise=5.0)
 
 #Overscan subtract the data
 #Should be able to provide the meta data for
@@ -110,11 +114,11 @@ ccddata.createvariance(gain=1.0, readnoise=5.0)
 #possible an axis to specify the oritation of the 
 #Question:  Best way to specify the section?  Should it be given 
 #Error Checks: That the section is within the image
-ccddata.subtract_overscan(section='[:,100:110]', function='polynomial', order=3)
+ccddata=subtract_overscan(ccddata, section='[:,100:110]', function='polynomial', order=3)
 
 #trim the images--the section gives the  part of the image to keep
 #That the trim section is within the image
-ccddata.trim_image(section='[0:100,0:100]')
+ccddata=trim_image(ccddata, section='[0:100,0:100]')
 
 #subtract the master bias.  Although this is a convenience function as subtracting
 #the two arrays will do the same thing.   This should be able to handle logging of
@@ -122,17 +126,17 @@ ccddata.trim_image(section='[0:100,0:100]')
 #just a convenience function
 #Error checks: the masterbias and image are the same shape
 masterbias=NDData.NDData(np.zeros(100,100))
-ccddata.subtract_bias(masterbias)
+ccddata=subtract_bias(ccddata, masterbias)
 
 #correct for dark frames
 #Error checks: the masterbias and image are the same shape
 masterdark=NDData.NDData(np.zeros(100,100))
-ccddata.subtract_dark(darkframe)
+ccddata=subtract_dark(ccddata,darkframe)
 
 #correct for gain--once again gain should have a unit and even an error associated with it.  
-ccddata.gain_correct(gain=1.0)
+ccddata=gain_correct(ccddata, gain=1.0)
 #Also the gain may be non-linear
-ccddata.gain_correct(gain=np.array([1.0,0.5e-3])
+ccddata=gain_correct(ccddata, gain=np.array([1.0,0.5e-3])
 #although then this step should be apply before any other corrections if it is non-linear
 #but that is more up to the person processing their own data.
 
@@ -142,7 +146,7 @@ ccddata.gain_correct(gain=np.array([1.0,0.5e-3])
 #situation
 #Error checks: the xtalkimage and image are the same shape
 xtalkimage=NDData.NDData(np.zeros(100,100))
-ccddata.xtalk_correct(xtalkimage, coef=1e-3)
+ccddata=xtalk_correct(ccddata, xtalkimage, coef=1e-3)
 
 #flat field correction--this can either be a dome flat, sky flat, or an 
 #illumination corrected image.  This step should normalize by the value of the
@@ -151,13 +155,13 @@ ccddata.xtalk_correct(xtalkimage, coef=1e-3)
 #Error checks: check for divive by zero
 #Features: If the flat is less than minvalue, minvalue is used
 flatimage=NDData.NDData(np.ones(100,100))
-ccddata.flat_correct(flatimage, minvalue=1)
+ccddata=flat_correct(ccddata, flatimage, minvalue=1)
 
 #fringe correction or any correction that requires subtracting
 #off a potentially scaled image
 #Error checks: the  flatimage and image are the same shape
 fringemage=NDData.NDData(np.ones(100,100))
-ccddata.fringe_correct(fringeimage, scale=1)
+ccddata=fringe_correct(ccddata, fringeimage, scale=1, operation='multiple')
 
 #cosmic ray cleaning step--this should have options for different
 #ways to do it with their associated steps.  We also might want to 
@@ -165,11 +169,12 @@ ccddata.fringe_correct(fringeimage, scale=1)
 #step should update the mask and flags. So the user could have options
 #to replace the cosmic rays, only flag the cosmic rays, or flag and 
 #mask the cosmic rays, or all of the above.
-ccddata.cosmicray_clean(method='laplace', args=*kwargs)
+ccddata=cosmicray_laplace(ccddata, method='laplace', args=*kwargs)
+ccddata=cosmicray_median(ccddata, method='laplace', args=*kwargs)
 
 #Apply distortion corrections
 #Either update the WCS or transform the frame
-ccddata.distortion_correct(distortion)
+ccddata=distortion_correct(ccddata, distortion)
 
 
 # ================
@@ -188,8 +193,14 @@ coef=iterfit(x, y, function='polynomial', order=3)
 #and/or convergernce limit
 coef=iterfit(data, function='polynomial', order=3)
 
+#in addition to these operations, basic addition, subtraction
+# multiplication, and division should work for CCDDATA objects
+ccddata= ccdata + ccddata
+ccddata= ccddata * 2
+
+
 #combine a set of NDData objects
-combine([ccddata, ccddata2], method='average', reject=None, **kwargs)
+alldata=combine([ccddata, ccddata2], method='average', reject=None, **kwargs)
 
 #re-sample the data to different binnings (either larger or smaller)
 ccddata=rebin(ccddata, binning=(2,2))
