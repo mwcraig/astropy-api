@@ -3,7 +3,13 @@
 
 from __future__ import print_function
 
-from astropy.nddata import NDdata
+import numpy as np
+
+from astropy.nddata import NDData
+from astropy.io import fits
+from astropy import units as u
+
+import ccdproc
 '''
 The ccdproc package provides tools for the reduction and
 analysis of optical data captured with a CCD.   The package
@@ -70,9 +76,9 @@ the information that will be kept for the processing of the
 
 '''
 data = 100 + 10 * np.random.random((110, 100))
-ccddata = CCDData(data=data)
-ccddata = CCDData(NDData.NDData)
-ccddata = CCDData(pyfits.ImageHDU)
+ccddata = ccdproc.CCDData(data=data)
+ccddata = ccdproc.CCDData(NDData.NDData(data))
+ccddata = ccdproc.CCDData(fits.ImageHDU(data))
 
 #Setting basic properties of the object
 # ----------------------
@@ -85,7 +91,7 @@ ccddata.units = u.adu  # is this valid?
 
 #The ccddata class should have a functional form to create a CCDData
 #object directory from a fits file
-ccddata = fromFITS('img.fits')
+ccddata = ccdproc.CCDData.fromFITS('img.fits')
 
 # Functional Requirements
 # ----------------------
@@ -106,7 +112,7 @@ ccddata = fromFITS('img.fits')
 #and a unit?  Or a scalar, unit and an error?   ie, This
 #could actually be handled by the gain and readnoise being
 #specified as an NDData object
-ccddata = createvariance(ccddata, gain=1.0, readnoise=5.0)
+ccddata = ccdproc.createvariance(ccddata, gain=1.0, readnoise=5.0)
 
 #Overscan subtract the data
 #Should be able to provide the meta data for
@@ -114,12 +120,12 @@ ccddata = createvariance(ccddata, gain=1.0, readnoise=5.0)
 #possible an axis to specify the oritation of the
 #Question:  Best way to specify the section?  Should it be given
 #Error Checks: That the section is within the image
-ccddata = subtract_overscan(ccddata, section='[:,100:110]',
-                            function='polynomial', order=3)
+ccddata = ccdproc.subtract_overscan(ccddata, section='[:,100:110]',
+                                    function='polynomial', order=3)
 
 #trim the images--the section gives the  part of the image to keep
 #That the trim section is within the image
-ccddata = trim_image(ccddata, section='[0:100,0:100]')
+ccddata = ccdproc.trim_image(ccddata, section='[0:100,0:100]')
 
 #subtract the master bias. Although this is a convenience function as
 #subtracting the two arrays will do the same thing. This should be able
@@ -127,18 +133,18 @@ ccddata = trim_image(ccddata, section='[0:100,0:100]')
 #and then this is really just a convenience function
 #Error checks: the masterbias and image are the same shape
 masterbias = NDData.NDData(np.zeros(100, 100))
-ccddata = subtract_bias(ccddata, masterbias)
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 
 #correct for dark frames
 #Error checks: the masterbias and image are the same shape
 masterdark = NDData.NDData(np.zeros(100, 100))
-ccddata = subtract_dark(ccddata, darkframe)
+ccddata = ccdproc.subtract_dark(ccddata, masterdark)
 
 #correct for gain--once again gain should have a unit and even an error
 #associated with it.
-ccddata = gain_correct(ccddata, gain=1.0)
+ccddata = ccdproc.gain_correct(ccddata, gain=1.0)
 #Also the gain may be non-linear
-ccddata = gain_correct(ccddata, gain=np.array([1.0, 0.5e-3]))
+ccddata = ccdproc.gain_correct(ccddata, gain=np.array([1.0, 0.5e-3]))
 #although then this step should be apply before any other corrections
 #if it is non-linear, but that is more up to the person processing their
 #own data.
@@ -149,7 +155,7 @@ ccddata = gain_correct(ccddata, gain=np.array([1.0, 0.5e-3]))
 #Not applicable for a single CCD situation
 #Error checks: the xtalkimage and image are the same shape
 xtalkimage = NDData.NDData(np.zeros(100, 100))
-ccddata = xtalk_correct(ccddata, xtalkimage, coef=1e-3)
+ccddata = ccdproc.xtalk_correct(ccddata, xtalkimage, coef=1e-3)
 
 #flat field correction--this can either be a dome flat, sky flat, or an
 #illumination corrected image.  This step should normalize by the value of the
@@ -158,13 +164,14 @@ ccddata = xtalk_correct(ccddata, xtalkimage, coef=1e-3)
 #Error checks: check for divive by zero
 #Features: If the flat is less than minvalue, minvalue is used
 flatimage = NDData.NDData(np.ones(100, 100))
-ccddata = flat_correct(ccddata, flatimage, minvalue=1)
+ccddata = ccdproc.flat_correct(ccddata, flatimage, minvalue=1)
 
 #fringe correction or any correction that requires subtracting
 #off a potentially scaled image
 #Error checks: the  flatimage and image are the same shape
-fringemage = NDData.NDData(np.ones(100, 100))
-ccddata = fringe_correct(ccddata, fringeimage, scale=1, operation='multiple')
+fringeimage = NDData.NDData(np.ones(100, 100))
+ccddata = ccdproc.fringe_correct(ccddata, fringeimage, scale=1,
+                                 operation='multiple')
 
 #cosmic ray cleaning step--this should have options for different
 #ways to do it with their associated steps.  We also might want to
@@ -172,12 +179,12 @@ ccddata = fringe_correct(ccddata, fringeimage, scale=1, operation='multiple')
 #step should update the mask and flags. So the user could have options
 #to replace the cosmic rays, only flag the cosmic rays, or flag and
 #mask the cosmic rays, or all of the above.
-ccddata = cosmicray_laplace(ccddata, method='laplace', **kwargs)
-ccddata = cosmicray_median(ccddata, method='laplace', **kwargs)
+ccddata = ccdproc.cosmicray_laplace(ccddata, method='laplace')
+ccddata = ccdproc.cosmicray_median(ccddata, method='laplace')
 
 #Apply distortion corrections
 #Either update the WCS or transform the frame
-ccddata = distortion_correct(ccddata, distortion)
+ccddata = ccdproc.distortion_correct(ccddata, distortion)
 
 
 # ================
@@ -188,27 +195,28 @@ ccddata = distortion_correct(ccddata, distortion)
 #select different functions to fit.
 #other options are reject parameters, number of iteractions
 #and/or convergernce limit
-coef = iterfit(x, y, function='polynomial', order=3)
+coef = ccdproc.iterfit(x, y, function='polynomial', order=3)
 
 #fit a 2-D function with iterative rejections and the ability to
 #select different functions to fit.
 #other options are reject parameters, number of iteractions
 #and/or convergernce limit
-coef = iterfit(data, function='polynomial', order=3)
+coef = ccdproc.iterfit(data, function='polynomial', order=3)
 
 #in addition to these operations, basic addition, subtraction
 # multiplication, and division should work for CCDDATA objects
 ccddata = ccddata + ccddata
-ccddata = ccddata * 2
+ccddata2 = ccddata * 2
 
 
 #combine a set of NDData objects
-alldata = combine([ccddata, ccddata2], method='average', reject=None, **kwargs)
+alldata = ccdproc.combine([ccddata, ccddata2], method='average',
+                          reject=None)
 
 #re-sample the data to different binnings (either larger or smaller)
-ccddata = rebin(ccddata, binning=(2, 2))
+ccddata = ccdproc.rebin(ccddata, binning=(2, 2))
 
 #tranform the data--ie shift, rotate, etc
 #question--add convenience functions for image shifting and rotation?
 #should udpate WCS although that would actually be the prefered method
-ccddata = transform(ccddata, transform, conserve_flux=True)
+ccddata = ccdproc.transform(ccddata, transform, conserve_flux=True)
