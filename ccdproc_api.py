@@ -239,6 +239,59 @@ ccddata = ccdproc.cosmicray_median(ccddata, method='laplace')
 ccddata = ccdproc.distortion_correct(ccddata, distortion)
 
 
+# =======
+# Logging
+# =======
+
+# By logging we mean simply keeping track of what has been to each image in
+# its as opposed to logging in the sense of the python logging module. Logging
+# at that level is expected to be done by pipelines using the functions in
+# ccdproc.
+
+# for the purposes of illustration this document describes how logging would
+# be handled for subtract_bias; handling for other functions would be similar.
+
+# OPTION: One entry is added to the metadata for each processing step and the
+# key added is the __name__ of the processing step.
+
+# Subtracting bias like this:
+
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
+
+# adds a keyword to the metadata:
+
+assert ccddata['subtract_bias']  # name is the __name__ of the
+                                 # processing step
+
+# this allows fairly easy checking of whether the processing step is being
+# repeated.
+
+# OPTION: One entry is added to the metadata for each processing step and the
+# key added is more human-friendly.
+
+# Subtracting bias like this:
+
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
+
+# adds a keyword to the metadata:
+
+assert ccddata.meta['bias_subtracted']  # name reads more naturally than previous
+                                        # option
+
+# OPTION: There is a single keyword called, e.g. calibration_status, whose
+# value is a logical OR of flags defined for each potential operation.
+
+# in this option several package-level constants would be defined:
+ccdproc.BIAS_DONE
+ccdproc.DARK_DONE
+# and so on.
+
+# Then logging has this effect:
+
+assert not (ccddata.meta['calibration_status'] & ccdproc.BIAS_DONE)
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
+assert (ccddata.meta['calibration_status'] & ccdproc.BIAS_DONE)
+
 # ================
 # Helper Functions
 # ================
