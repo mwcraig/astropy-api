@@ -8,6 +8,7 @@ import numpy as np
 from astropy.nddata import NDData
 from astropy.io import fits
 from astropy import units as u
+from astropy.stats.funcs import sigma_clip
 
 import ccdproc
 '''
@@ -246,7 +247,6 @@ ccddata = ccdproc.cosmicray_median(ccddata, method='laplace')
 #Either update the WCS or transform the frame
 ccddata = ccdproc.distortion_correct(ccddata, distortion)
 
-
 # =======
 # Logging
 # =======
@@ -298,6 +298,84 @@ key = ccdproc.Keyword('calstat', unit=str)
 key.value = 'B'
 ccddata = ccdproc.subtract_bias(ccddata, masterbias,
                                 add_keyword=key)
+
+# =================
+# Image combination
+# =================
+
+# The ``combine`` task from IRAF performs several functions:
+# 1. Selection of images to be combined by image type with optional grouping
+#    into subsets.
+# 2. Offsetting of images based on either user-specified shifts or on WCS 
+#    information in the image metadata.
+# 3. Rejection of pixels from inclusion in the combination based on masking,
+#    threshold rejection prior to any image scaling or zero offsets, and
+#    automatic rejection through a variety of algorithms (minmax, sigmaclip,
+#    ccdclip, etc) that allow for scaling, zero offset and in some cases
+#    weighting of the images being combined.
+# 4. Scaling and/or zero offset of images before combining based on metadata
+#    (e.g. image exposure) or image statistics (e.g image median, mode or average
+#    determined by either an IRAF-selected subset of points or a region of the
+#    image supplied by the user).
+# 5. Combination of remaining pixels by either median or average.
+# 6. Logging of the choices made by IRAF in carrying out the operation (e.g.
+#    recording what zero offset was used for each image).
+
+# As much as is practical, the ccdproc API separates these functions, discussed
+# in detail below.
+
+# 1. Image selection: this will not be provided by ccdproc (or at least not
+#    considered part of image combination). We assume that the user will have
+#    selected a set of images prior to beginning combination.
+
+# 2. Position offsets: offsets and other transforms are handled by
+#    ccdproc.transform, described below under "Helper Function"
+
+# 3. (One option: build up a list of rejected pixels)
+#   Masking: ccdpro.CCDData objects are already masked arrays, allowing
+#   automatic exclusion of masked pixels from all operations.
+#
+#   Threshold rejection of all pixels with data value over 30000 or under -100:
+
+rejected_pixels = ccdproc.threshold_reject(ccddata1, ccddata2, ccddata3,
+                                           max=30000, min=-100)
+
+#   automatic rejection by min/max, sigmaclip, ccdclip, etc. provided through
+#   one interface with separate helper functions
+
+# min/max
+rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
+                               method=ccdproc.minmax)
+
+# sigmaclip (relies on astropy.stats.funcs)
+rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
+                               method=sigma_clip,
+                               sigma_high=3.0, sigma_low=2.0,
+                               centerfunc=np.mean,
+                               exclude_extrema=True) # are min/max pixels excluded?
+
+# ccdclip
+rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
+                               method=ccdproc.ccdclip,
+                               sigma_high=3.0, sigma_low=2.0,
+                               gain=1.0, read_noise=5.0,
+                               centerfunc=np.mean
+                               exclude_extrema=True)
+
+# 4. Image scaling/zero offset with scaling determined by the mode of each
+#    image and the offset by the median
+
+scales, zero_offset = ccdproc.calc_weights(cddata1, ccddata2, ccddata3,
+                                           scale_by=np.mode,
+                                           offset_by=np.median)
+
+# 5. The actual combination
+
+combined_image = ccdproc.combine(cddata1, ccddata2, ccddata3,
+                                 reject=rejected_pixels,
+                                 scale=scales,
+                                 offset=zero_offset,
+                                 method=np.median)
 
 # ================
 # Helper Functions
