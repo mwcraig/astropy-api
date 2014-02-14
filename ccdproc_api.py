@@ -87,11 +87,36 @@ ccddata.mask = np.ones(110, 100)
 ccddata.flags = np.zeros(110, 100)
 ccddata.wcs = None
 ccddata.meta = {}
+
+# making the metadata a Header instance gets us a case-insensitive dictionary...
+assert isinstance(ccddata.meta, fits.Header)
 ccddata.units = u.adu  # is this valid?
 
 #The ccddata class should have a functional form to create a CCDData
 #object directory from a fits file
 ccddata = ccdproc.CCDData.fromFITS('img.fits')
+
+'''
+Keyword is an object that represents a key, value pair for use in passing
+data between functions in ``ccdproc``. The value is an astropy.units.Quantity,
+with the unit specified explicitly when the Keyword instance is created.
+The key is case-insensitive, and synonyms can be supplied that will be used
+to look for the value in CCDData.meta.
+'''
+key = ccdproc.Keyword('exposure', unit=u.sec, synonyms=['exptime'])
+header = fits.Header()
+header['exposure'] = 15.0
+# value matched  by keyword name exposure
+value = key(header)
+assert value == 15 * u.sec
+del header['exposure']
+header['exptime'] = 15.0
+# value matched by synonym exptime
+value = key(header)
+assert value == 15 * u.sec
+# inconsistent values in the header raise an error:
+header['exposure'] = 25.0
+value = key(header)  # raises ValueError
 
 # Functional Requirements
 # ----------------------
@@ -137,12 +162,39 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 
 #correct for dark frames
 #Error checks: the masterbias and image are the same shape
-masterdark = NDData.NDData(np.zeros(100, 100))
-ccddata = ccdproc.subtract_dark(ccddata, masterdark)
+#Options: Exposure time of the data image and the master dark image can be
+#         specified as either an astropy.units.Quantity or as a ccdata.Keyword;
+#         in the second case the exposure time will be extracted from the
+#         metadata for each image.
+masterdark = ccdproc.CCDData(np.zeros(100, 100))
+masterdark.meta['exptime'] = 30.0
+ccddata.meta['EXPOSURE'] = 15.0
+
+exposure_time_key = ccdproc.Keyword('exposure',
+                                    unit=u.sec,
+                                    synonyms=['exptime'])
+
+# explicitly specify exposure times
+ccddata = ccdproc.subtract_dark(ccddata, masterdark,
+                                data_exposure=15 * u.sec,
+                                dark_exposure=30 * u.sec,
+                                scale=True
+                                )
+
+# get exposure times from metadata
+ccddata = ccdproc.subtract_dark(ccddata, masterdark,
+                                exposure_time=exposure_time_key,
+                                scale=True)
 
 #correct for gain--once again gain should have a unit and even an error
 #associated with it.
-ccddata = ccdproc.gain_correct(ccddata, gain=1.0)
+
+# gain can be specified as a Quantity...
+ccddata = ccdproc.gain_correct(ccddata, gain=1.0 * u.ph / u.adu)
+# ...or the gain can be specified as a ccdproc.Keyword:
+gain_key = ccdproc.Keyword('gain', unit=u.ph / u.adu)
+ccddata = ccdproc.gain_correct(ccddata, gain=gain_key)
+
 #Also the gain may be non-linear
 ccddata = ccdproc.gain_correct(ccddata, gain=np.array([1.0, 0.5e-3]))
 #although then this step should be apply before any other corrections
