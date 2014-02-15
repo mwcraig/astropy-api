@@ -260,8 +260,8 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 
 # adds a keyword to the metadata:
 
-assert ccddata['subtract_bias']  # name is the __name__ of the
-                                 # processing step
+assert ccddata.meta['subtract_bias']  # name is the __name__ of the
+                                      # processing step
 
 # this allows fairly easy checking of whether the processing step is being
 # repeated.
@@ -278,19 +278,21 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 assert ccddata.meta['bias_subtracted']  # name reads more naturally than previous
                                         # option
 
-# OPTION: There is a single keyword called, e.g. calibration_status, whose
-# value is a logical OR of flags defined for each potential operation.
+# OPTION: Each of the processing steps allows the user to specify a keyword
+# that is added to the metadata. An optional value can also be given.
 
-# in this option several package-level constants would be defined:
-ccdproc.BIAS_DONE
-ccdproc.DARK_DONE
-# and so on.
+#  SUB-OPTION: Allow the Keyword class to have string values? Then could use
+#  those as an argument for add_keywords
 
-# Then logging has this effect:
+# add keyword named SUBBIAS but don't set a value for it:
 
-assert not (ccddata.meta['calibration_status'] & ccdproc.BIAS_DONE)
-ccddata = ccdproc.subtract_bias(ccddata, masterbias)
-assert (ccddata.meta['calibration_status'] & ccdproc.BIAS_DONE)
+ccddata = ccdproc.subtract_bias(ccddata, masterbias, add_keyword='SUBBIAS')
+
+# add keyword CALSTAT with value 'B':
+
+ccddata = ccdproc.subtract_bias(ccddata, masterbias, 
+                                add_keyword='CALSTAT',
+                                value='B')
 
 # ================
 # Helper Functions
