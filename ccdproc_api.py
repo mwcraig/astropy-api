@@ -328,8 +328,9 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias,
 #    considered part of image combination). We assume that the user will have
 #    selected a set of images prior to beginning combination.
 
-# 2. Position offsets: offsets and other transforms are handled by
-#    ccdproc.transform, described below under "Helper Function"
+# 2. Position offsets: In ccdproc this is not part of combine. Instead,
+#    offsets and other transforms are handled by ccdproc.transform, described
+#    below under "Helper Function"
 
 # 3. (One option: build up a list of rejected pixels)
 #   Masking: ccdpro.CCDData objects are already masked arrays, allowing
