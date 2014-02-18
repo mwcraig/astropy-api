@@ -8,6 +8,7 @@ import numpy as np
 from astropy.nddata import NDData
 from astropy.io import fits
 from astropy import units as u
+from astropy.stats.funcs import sigma_clip
 
 import ccdproc
 '''
@@ -118,6 +119,20 @@ assert value == 15 * u.sec
 header['exposure'] = 25.0
 value = key(header)  # raises ValueError
 
+# the value of a Keyword can also be set directly:
+key.value = 20 * u.sec
+
+# String values are accommodated by setting the unit to the python type str:
+
+string_key = ccdproc.Keyword('filter', unit=str)
+string_key.value = 'V'
+
+'''
+Combiner is an object to facilitate image combination. Its methods perform
+the steps that are bundled into the IRAF task combine
+
+It is discussed in detail below, in the section "Image combination"
+'''
 # Functional Requirements
 # ----------------------
 # A number of these different fucntions are convenient functions that
@@ -238,6 +253,138 @@ ccddata = ccdproc.cosmicray_median(ccddata, method='laplace')
 #Either update the WCS or transform the frame
 ccddata = ccdproc.distortion_correct(ccddata, distortion)
 
+# =======
+# Logging
+# =======
+
+# By logging we mean simply keeping track of what has been to each image in
+# its as opposed to logging in the sense of the python logging module. Logging
+# at that level is expected to be done by pipelines using the functions in
+# ccdproc.
+
+# for the purposes of illustration this document describes how logging would
+# be handled for subtract_bias; handling for other functions would be similar.
+
+# OPTION: One entry is added to the metadata for each processing step and the
+# key added is the __name__ of the processing step.
+
+# Subtracting bias like this:
+
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
+
+# adds a keyword to the metadata:
+
+assert 'subtract_bias' in ccddata.meta  # name is the __name__ of the
+                                        # processing step
+
+# this allows fairly easy checking of whether the processing step is being
+# repeated.
+
+# OPTION: One entry is added to the metadata for each processing step and the
+# key added is more human-friendly.
+
+# Subtracting bias like this:
+
+ccddata = ccdproc.subtract_bias(ccddata, masterbias)
+
+# adds a keyword to the metadata:
+
+assert 'bias_subtracted' in ccddata.meta  # name reads more naturally than
+                                          # previous option
+
+# OPTION: Each of the processing steps allows the user to specify a keyword
+# that is added to the metadata. The keyword can either be a string or a
+# ccdproc.Keyword instance
+
+# add keyword as string:
+ccddata = ccdproc.subtract_bias(ccddata, masterbias, add_keyword='SUBBIAS')
+
+# add keyword/value using a ccdproc.Keyword object:
+key = ccdproc.Keyword('calstat', unit=str)
+key.value = 'B'
+ccddata = ccdproc.subtract_bias(ccddata, masterbias,
+                                add_keyword=key)
+
+# =================
+# Image combination
+# =================
+
+# The ``combine`` task from IRAF performs several functions:
+# 1. Selection of images to be combined by image type with optional grouping
+#    into subsets.
+# 2. Offsetting of images based on either user-specified shifts or on WCS
+#    information in the image metadata.
+# 3. Rejection of pixels from inclusion in the combination based on masking,
+#    threshold rejection prior to any image scaling or zero offsets, and
+#    automatic rejection through a variety of algorithms (minmax, sigmaclip,
+#    ccdclip, etc) that allow for scaling, zero offset and in some cases
+#    weighting of the images being combined.
+# 4. Scaling and/or zero offset of images before combining based on metadata
+#    (e.g. image exposure) or image statistics (e.g image median, mode or
+#    average determined by either an IRAF-selected subset of points or a
+#    region of the image supplied by the user).
+# 5. Combination of remaining pixels by either median or average.
+# 6. Logging of the choices made by IRAF in carrying out the operation (e.g.
+#    recording what zero offset was used for each image).
+
+# As much as is practical, the ccdproc API separates these functions, discussed
+# in detail below.
+
+# 1. Image selection: this will not be provided by ccdproc (or at least not
+#    considered part of image combination). We assume that the user will have
+#    selected a set of images prior to beginning combination.
+
+# 2. Position offsets: In ccdproc this is not part of combine. Instead,
+#    offsets and other transforms are handled by ccdproc.transform, described
+#    below under "Helper Function"
+
+# The combination process begins with the creation of a Combiner object,
+# initialized with the images to be combined
+
+combine = ccdproc.Combiner(ccddata1, ccddata2, ccddata3)
+
+# 3. 
+#   Masking: ccdpro.CCDData objects are already masked arrays, allowing
+#   automatic exclusion of masked pixels from all operations.
+#
+#   Threshold rejection of all pixels with data value over 30000 or under -100:
+
+combine.threshold_reject(max=30000, min=-100)
+
+#   automatic rejection by min/max, sigmaclip, ccdclip, etc. provided through
+#   one method, with different helper functions
+
+# min/max
+combine.clip(method=ccdproc.minmax)
+
+# sigmaclip (relies on astropy.stats.funcs)
+combine.clip(method=sigma_clip,
+             sigma_high=3.0, sigma_low=2.0,
+             centerfunc=np.mean,
+             exclude_extrema=True)  # min/max pixels can be excluded in the 
+                                    # sigma_clip. IRAF's clip excludes them
+
+# ccdclip
+combine.clip(method=ccdproc.ccdclip,
+             sigma_high=3.0, sigma_low=2.0,
+             gain=1.0, read_noise=5.0,
+             centerfunc=np.mean,
+             exclude_extrema=True)
+
+# 4. Image scaling/zero offset with scaling determined by the mode of each
+#    image and the offset by the median. This method calculates what are
+#    effectively weights for each image
+
+combine.calc_weights(scale_by=np.mode, offset_by=np.median)
+
+# 5. The actual combination -- a couple of ways images can be combined
+
+# median; the excluded pixels based on the individual image masks, threshold
+# rejection, clipping, etc, are wrapped into a single mask for each image
+combined_image = combine(method=np.ma.median)
+
+# average; in this case image weights can also be specified
+combined_image = combine(method=np.ma.mean, weights=[0.5, 1, 2])
 
 # ================
 # Helper Functions
