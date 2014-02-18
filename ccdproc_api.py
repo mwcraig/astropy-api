@@ -268,8 +268,8 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 
 # adds a keyword to the metadata:
 
-assert ccddata.meta['subtract_bias']  # name is the __name__ of the
-                                      # processing step
+assert 'subtract_bias' in ccddata.meta  # name is the __name__ of the
+                                        # processing step
 
 # this allows fairly easy checking of whether the processing step is being
 # repeated.
@@ -283,8 +283,8 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 
 # adds a keyword to the metadata:
 
-assert ccddata.meta['bias_subtracted']  # name reads more naturally than previous
-                                        # option
+assert 'bias_subtracted' in ccddata.meta  # name reads more naturally than
+                                          # previous option
 
 # OPTION: Each of the processing steps allows the user to specify a keyword
 # that is added to the metadata. The keyword can either be a string or a
