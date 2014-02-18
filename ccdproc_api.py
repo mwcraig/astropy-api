@@ -118,6 +118,14 @@ assert value == 15 * u.sec
 header['exposure'] = 25.0
 value = key(header)  # raises ValueError
 
+# the value of a Keyword can also be set directly:
+key.value = 20 * u.sec
+
+# String values are accommodated by setting the unit to the python type str:
+
+string_key = ccdproc.Keyword('filter', unit=str)
+string_key.value = 'V'
+
 # Functional Requirements
 # ----------------------
 # A number of these different fucntions are convenient functions that
@@ -279,20 +287,17 @@ assert ccddata.meta['bias_subtracted']  # name reads more naturally than previou
                                         # option
 
 # OPTION: Each of the processing steps allows the user to specify a keyword
-# that is added to the metadata. An optional value can also be given.
+# that is added to the metadata. The keyword can either be a string or a
+# ccdproc.Keyword instance
 
-#  SUB-OPTION: Allow the Keyword class to have string values? Then could use
-#  those as an argument for add_keywords
-
-# add keyword named SUBBIAS but don't set a value for it:
-
+# add keyword as string:
 ccddata = ccdproc.subtract_bias(ccddata, masterbias, add_keyword='SUBBIAS')
 
-# add keyword CALSTAT with value 'B':
-
-ccddata = ccdproc.subtract_bias(ccddata, masterbias, 
-                                add_keyword='CALSTAT',
-                                value='B')
+# add keyword/value using a ccdproc.Keyword object:
+key = ccdproc.Keyword('calstat', unit=str)
+key.value = 'B'
+ccddata = ccdproc.subtract_bias(ccddata, masterbias,
+                                add_keyword=key)
 
 # ================
 # Helper Functions
