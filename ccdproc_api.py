@@ -127,6 +127,12 @@ key.value = 20 * u.sec
 string_key = ccdproc.Keyword('filter', unit=str)
 string_key.value = 'V'
 
+'''
+Combiner is an object to facilitate image combination. Its methods perform
+the steps that are bundled into the IRAF task combine
+
+It is discussed in detail below, in the section "Image combination"
+'''
 # Functional Requirements
 # ----------------------
 # A number of these different fucntions are convenient functions that
@@ -306,7 +312,7 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias,
 # The ``combine`` task from IRAF performs several functions:
 # 1. Selection of images to be combined by image type with optional grouping
 #    into subsets.
-# 2. Offsetting of images based on either user-specified shifts or on WCS 
+# 2. Offsetting of images based on either user-specified shifts or on WCS
 #    information in the image metadata.
 # 3. Rejection of pixels from inclusion in the combination based on masking,
 #    threshold rejection prior to any image scaling or zero offsets, and
@@ -314,9 +320,9 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias,
 #    ccdclip, etc) that allow for scaling, zero offset and in some cases
 #    weighting of the images being combined.
 # 4. Scaling and/or zero offset of images before combining based on metadata
-#    (e.g. image exposure) or image statistics (e.g image median, mode or average
-#    determined by either an IRAF-selected subset of points or a region of the
-#    image supplied by the user).
+#    (e.g. image exposure) or image statistics (e.g image median, mode or
+#    average determined by either an IRAF-selected subset of points or a
+#    region of the image supplied by the user).
 # 5. Combination of remaining pixels by either median or average.
 # 6. Logging of the choices made by IRAF in carrying out the operation (e.g.
 #    recording what zero offset was used for each image).
@@ -332,51 +338,53 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias,
 #    offsets and other transforms are handled by ccdproc.transform, described
 #    below under "Helper Function"
 
-# 3. (One option: build up a list of rejected pixels)
+# The combination process begins with the creation of a Combiner object,
+# initialized with the images to be combined
+
+combine = ccdproc.Combiner(ccddata1, ccddata2, ccddata3)
+
+# 3. 
 #   Masking: ccdpro.CCDData objects are already masked arrays, allowing
 #   automatic exclusion of masked pixels from all operations.
 #
 #   Threshold rejection of all pixels with data value over 30000 or under -100:
 
-rejected_pixels = ccdproc.threshold_reject(ccddata1, ccddata2, ccddata3,
-                                           max=30000, min=-100)
+combine.threshold_reject(max=30000, min=-100)
 
 #   automatic rejection by min/max, sigmaclip, ccdclip, etc. provided through
-#   one interface with separate helper functions
+#   one method, with different helper functions
 
 # min/max
-rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
-                               method=ccdproc.minmax)
+combine.clip(method=ccdproc.minmax)
 
 # sigmaclip (relies on astropy.stats.funcs)
-rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
-                               method=sigma_clip,
-                               sigma_high=3.0, sigma_low=2.0,
-                               centerfunc=np.mean,
-                               exclude_extrema=True) # are min/max pixels excluded?
+combine.clip(method=sigma_clip,
+             sigma_high=3.0, sigma_low=2.0,
+             centerfunc=np.mean,
+             exclude_extrema=True)  # min/max pixels can be excluded in the 
+                                    # sigma_clip. IRAF's clip excludes them
 
 # ccdclip
-rejected_pixels = ccdproc.clip(ccddata1, ccddata2, ccddata3,
-                               method=ccdproc.ccdclip,
-                               sigma_high=3.0, sigma_low=2.0,
-                               gain=1.0, read_noise=5.0,
-                               centerfunc=np.mean
-                               exclude_extrema=True)
+combine.clip(method=ccdproc.ccdclip,
+             sigma_high=3.0, sigma_low=2.0,
+             gain=1.0, read_noise=5.0,
+             centerfunc=np.mean,
+             exclude_extrema=True)
 
 # 4. Image scaling/zero offset with scaling determined by the mode of each
-#    image and the offset by the median
+#    image and the offset by the median. This method calculates what are
+#    effectively weights for each image
 
-scales, zero_offset = ccdproc.calc_weights(cddata1, ccddata2, ccddata3,
-                                           scale_by=np.mode,
-                                           offset_by=np.median)
+combine.calc_weights(scale_by=np.mode, offset_by=np.median)
 
-# 5. The actual combination
+# 5. The actual combination -- a couple of ways images can be combined
 
-combined_image = ccdproc.combine(cddata1, ccddata2, ccddata3,
-                                 reject=rejected_pixels,
-                                 scale=scales,
-                                 offset=zero_offset,
-                                 method=np.median)
+# median; the excluded pixels based on the individual image masks, threshold
+# rejection, clipping, etc, are wrapped into a single mask for each image
+combined_image = combine(method=np.ma.median)
+
+# average; in this case image weights can also be specified
+combined_image = combine(method=np.ma.mean, weights=[0.5, 1, 2])
 
 # ================
 # Helper Functions
