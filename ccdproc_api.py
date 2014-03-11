@@ -95,7 +95,13 @@ ccddata.units = u.adu  # is this valid?
 
 #The ccddata class should have a functional form to create a CCDData
 #object directory from a fits file
-ccddata = ccdproc.CCDData.fromFITS('img.fits')
+ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')
+
+#This function should then be registered with astropy.io.registry so 
+# the standard way for reading in a fits image will be 
+# the following: 
+ccddata = ccdproc.CCDData.read('img.fits', format='fits')
+
 
 '''
 Keyword is an object that represents a key, value pair for use in passing
