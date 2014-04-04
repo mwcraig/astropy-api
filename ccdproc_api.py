@@ -102,6 +102,8 @@ ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')
 # the following: 
 ccddata = ccdproc.CCDData.read('img.fits', format='fits')
 
+# CCDData should raise an error if no unit is provided and a unit cannot be
+# extracted from the FITS header.
 
 '''
 Keyword is an object that represents a key, value pair for use in passing
@@ -149,7 +151,25 @@ It is discussed in detail below, in the section "Image combination"
 #and a unit?  Or a scalar, unit and an error?   ie, This
 #could actually be handled by the gain and readnoise being
 #specified as an NDData object
-ccddata = ccdproc.createvariance(ccddata, gain=1.0, readnoise=5.0)
+
+ccddata.unit = u.adu
+# The call below should raise an error because gain and readnoise are provided
+# without units.
+ccddata = ccdproc.create_variance(ccddata, gain=1.0, readnoise=5.0)
+
+# The electron unit is provided by ccddata
+gain = 1.0 ccddata.electron / u.adu
+readnoise = 5.0 * u.electron
+# This succeeds because the units are consistent
+ccddata = ccdproc.create_variance(ccddata, gain-gain, readnoise=readnoise)
+
+# with the gain units below there is a mismatch between the units of the
+# image after scaling by the gain and the units of the readnoise...
+gain = 1.0 u.photon / u.adu
+
+# ...so this should fail with an error.
+ccddata = ccdproc.create_variance(ccddata, gain-gain, readnoise=readnoise)
+
 
 #Overscan subtract the data
 #Should be able to provide the meta data for
