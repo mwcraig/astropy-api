@@ -107,23 +107,14 @@ ccddata = ccdproc.CCDData.read('img.fits', format='fits')
 Keyword is an object that represents a key, value pair for use in passing
 data between functions in ``ccdproc``. The value is an astropy.units.Quantity,
 with the unit specified explicitly when the Keyword instance is created.
-The key is case-insensitive, and synonyms can be supplied that will be used
-to look for the value in CCDData.meta.
+The key is case-insensitive.
 '''
-key = ccdproc.Keyword('exposure', unit=u.sec, synonyms=['exptime'])
+key = ccdproc.Keyword('exposure', unit=u.sec)
 header = fits.Header()
 header['exposure'] = 15.0
 # value matched  by keyword name exposure
-value = key(header)
+value = key.value_from(header)
 assert value == 15 * u.sec
-del header['exposure']
-header['exptime'] = 15.0
-# value matched by synonym exptime
-value = key(header)
-assert value == 15 * u.sec
-# inconsistent values in the header raise an error:
-header['exposure'] = 25.0
-value = key(header)  # raises ValueError
 
 # the value of a Keyword can also be set directly:
 key.value = 20 * u.sec
