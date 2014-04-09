@@ -77,9 +77,11 @@ the information that will be kept for the processing of the
 
 '''
 data = 100 + 10 * np.random.random((110, 100))
-ccddata = ccdproc.CCDData(data=data)
-ccddata = ccdproc.CCDData(NDData.NDData(data))
-ccddata = ccdproc.CCDData(fits.ImageHDU(data))
+# initializing without a unit raises an error
+ccddata = ccdproc.CCDData(data=data) # ValueError
+ccddata = ccdproc.CCDData(data=data, unit=u.adu)
+ccddata = ccdproc.CCDData(NDData.NDData(data), unit=u.photon)
+ccddata = ccdproc.CCDData(fits.ImageHDU(data), unit=u.adu)
 
 #Setting basic properties of the object
 # ----------------------
