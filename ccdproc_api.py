@@ -109,10 +109,17 @@ ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
                                               image_unit=u.adu,
                                               hdu=2)
 
-# any additional keywords are passed through to fits.open, e.g.
+# any additional keywords are passed through to fits.open, with the exception
+# of those related scaling (do_not_scale_image_data and scale_back)
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              memmap=False)
+# The call below raises a TypeErrror
 ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
                                               image_unit=u.adu,
                                               do_not_scale_image_data=True)
+
+
 # This function should then be registered with astropy.io.registry, and the 
 # FITS format auto-identified using the fits.connect.is_fits so
 # the standard way for reading in a fits image will be
