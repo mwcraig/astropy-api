@@ -97,15 +97,47 @@ ccddata.units = u.adu  # is this valid?
 
 #The ccddata class should have a functional form to create a CCDData
 #object directory from a fits file
-ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')
+ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits', image_unit=u.adu)
 
-#This function should then be registered with astropy.io.registry so 
-# the standard way for reading in a fits image will be 
+# omitting a unit causes an error for now -- in the future an attempt should
+# be made to extract the unit from the FITS header.
+ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')  # raises ValueError
+
+# If a file has multiple extensions the desired hdu should be specified. It
+# defaults to zero.
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              hdu=2)
+
+
+# This function should then be registered with astropy.io.registry, and the 
+# FITS format auto-identified using the fits.connect.is_fits so
+# the standard way for reading in a fits image will be
 # the following: 
-ccddata = ccdproc.CCDData.read('img.fits', format='fits')
+ccddata = ccdproc.CCDData.read('img.fits', image_unit=u.adu)
 
-# CCDData should raise an error if no unit is provided and a unit cannot be
-# extracted from the FITS header.
+
+# CCDData raises an error if no unit is provided; eventually an attempt to
+# extract the unit from the FITS header should be made.
+
+# Writing is handled in a similar fashion; the image ccddata is written to
+# the file img2.fits with:
+ccdproc.CCDData.fits_ccddata_writer(ccddata, 'img2.fits')
+
+# all additional keywords are passed on to the underlying FITS writer, e.g.
+ccdproc.CCDData.fits_ccddata_writer(ccddata, 'img2.fits', clobber=True)
+
+# The writer is registered with unified io so that in practice a user will do
+ccddata.write('img2.fits')
+
+# NOTE: for now any flag, mask and/or unit for ccddata is discarded when
+# writing. If you want all or some of that information preserved you must
+# create the FITS files manually.
+
+# To be completely explicit about this:
+ccddata2 = ccdproc.CCDData.read('img2.fits', image_unit=u.adu)
+assert ccddata2.mask is None  # even though we set ccddata.mask before saving
+assert ccddata2.flag is None  # even though we set ccddata.flag before saving
 
 '''
 Keyword is an object that represents a key, value pair for use in passing
