@@ -109,7 +109,10 @@ ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
                                               image_unit=u.adu,
                                               hdu=2)
 
-
+# any additional keywords are passed through to fits.open, e.g.
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              do_not_scale_image_data=True)
 # This function should then be registered with astropy.io.registry, and the 
 # FITS format auto-identified using the fits.connect.is_fits so
 # the standard way for reading in a fits image will be
@@ -135,6 +138,10 @@ ccddata.write('img2.fits')
 # create the FITS files manually.
 
 # To be completely explicit about this:
+ccddata.mask = np.ones(110, 100)
+ccddata.flags = np.zeros(110, 100)
+ccddata.write('img2.fits')
+
 ccddata2 = ccdproc.CCDData.read('img2.fits', image_unit=u.adu)
 assert ccddata2.mask is None  # even though we set ccddata.mask before saving
 assert ccddata2.flag is None  # even though we set ccddata.flag before saving
