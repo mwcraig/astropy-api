@@ -153,6 +153,10 @@ ccddata2 = ccdproc.CCDData.read('img2.fits', image_unit=u.adu)
 assert ccddata2.mask is None  # even though we set ccddata.mask before saving
 assert ccddata2.flag is None  # even though we set ccddata.flag before saving
 
+# CCDData provides a convenience method to construct a FITS HDU from the data
+# and metadata
+hdu = ccddata.to_hdu()
+
 '''
 Keyword is an object that represents a key, value pair for use in passing
 data between functions in ``ccdproc``. The value is an astropy.units.Quantity,
