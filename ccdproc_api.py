@@ -173,10 +173,16 @@ assert value == 15 * u.sec
 # the value of a Keyword can also be set directly:
 key.value = 20 * u.sec
 
-# String values are accommodated by setting the unit to the python type str:
+# String values are accommodated by not setting the unit and setting the value
+# to a string
 
-string_key = ccdproc.Keyword('filter', unit=str)
+string_key = ccdproc.Keyword('filter')
 string_key.value = 'V'
+
+# Setting a string value when a unit has been specified is an error
+
+bad_key = ccdproc.Keyword('exposure', unit=u.sec)
+bad_key.value = '30'  # raise a ValueError
 
 '''
 Combiner is an object to facilitate image combination. Its methods perform
