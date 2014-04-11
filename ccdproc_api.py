@@ -219,14 +219,14 @@ ccddata = ccdproc.create_variance(ccddata, gain=1.0, readnoise=5.0)
 gain = 1.0 ccddata.electron / u.adu
 readnoise = 5.0 * u.electron
 # This succeeds because the units are consistent
-ccddata = ccdproc.create_variance(ccddata, gain-gain, readnoise=readnoise)
+ccddata = ccdproc.create_variance(ccddata, gain=gain, readnoise=readnoise)
 
 # with the gain units below there is a mismatch between the units of the
 # image after scaling by the gain and the units of the readnoise...
 gain = 1.0 u.photon / u.adu
 
 # ...so this should fail with an error.
-ccddata = ccdproc.create_variance(ccddata, gain-gain, readnoise=readnoise)
+ccddata = ccdproc.create_variance(ccddata, gain=gain, readnoise=readnoise)
 
 
 #Overscan subtract the data
