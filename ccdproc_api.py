@@ -77,9 +77,11 @@ the information that will be kept for the processing of the
 
 '''
 data = 100 + 10 * np.random.random((110, 100))
-ccddata = ccdproc.CCDData(data=data)
-ccddata = ccdproc.CCDData(NDData.NDData(data))
-ccddata = ccdproc.CCDData(fits.ImageHDU(data))
+# initializing without a unit raises an error
+ccddata = ccdproc.CCDData(data=data) # ValueError
+ccddata = ccdproc.CCDData(data=data, unit=u.adu)
+ccddata = ccdproc.CCDData(NDData.NDData(data), unit=u.photon)
+ccddata = ccdproc.CCDData(fits.ImageHDU(data), unit=u.adu)
 
 #Setting basic properties of the object
 # ----------------------
@@ -95,43 +97,92 @@ ccddata.units = u.adu  # is this valid?
 
 #The ccddata class should have a functional form to create a CCDData
 #object directory from a fits file
-ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')
+ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits', image_unit=u.adu)
 
-#This function should then be registered with astropy.io.registry so 
-# the standard way for reading in a fits image will be 
+# omitting a unit causes an error for now -- in the future an attempt should
+# be made to extract the unit from the FITS header.
+ccddata = ccdproc.CCDData.fits_ccddata_reader('img.fits')  # raises ValueError
+
+# If a file has multiple extensions the desired hdu should be specified. It
+# defaults to zero.
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              hdu=2)
+
+# any additional keywords are passed through to fits.open, with the exception
+# of those related scaling (do_not_scale_image_data and scale_back)
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              memmap=False)
+# The call below raises a TypeErrror
+ccddata = ccdproc.CCDData.fits_ccddata_reader('multi_extension.fits',
+                                              image_unit=u.adu,
+                                              do_not_scale_image_data=True)
+
+
+# This function should then be registered with astropy.io.registry, and the 
+# FITS format auto-identified using the fits.connect.is_fits so
+# the standard way for reading in a fits image will be
 # the following: 
-ccddata = ccdproc.CCDData.read('img.fits', format='fits')
+ccddata = ccdproc.CCDData.read('img.fits', image_unit=u.adu)
 
+
+# CCDData raises an error if no unit is provided; eventually an attempt to
+# extract the unit from the FITS header should be made.
+
+# Writing is handled in a similar fashion; the image ccddata is written to
+# the file img2.fits with:
+ccdproc.CCDData.fits_ccddata_writer(ccddata, 'img2.fits')
+
+# all additional keywords are passed on to the underlying FITS writer, e.g.
+ccdproc.CCDData.fits_ccddata_writer(ccddata, 'img2.fits', clobber=True)
+
+# The writer is registered with unified io so that in practice a user will do
+ccddata.write('img2.fits')
+
+# NOTE: for now any flag, mask and/or unit for ccddata is discarded when
+# writing. If you want all or some of that information preserved you must
+# create the FITS files manually.
+
+# To be completely explicit about this:
+ccddata.mask = np.ones(110, 100)
+ccddata.flags = np.zeros(110, 100)
+ccddata.write('img2.fits')
+
+ccddata2 = ccdproc.CCDData.read('img2.fits', image_unit=u.adu)
+assert ccddata2.mask is None  # even though we set ccddata.mask before saving
+assert ccddata2.flag is None  # even though we set ccddata.flag before saving
+
+# CCDData provides a convenience method to construct a FITS HDU from the data
+# and metadata
+hdu = ccddata.to_hdu()
 
 '''
 Keyword is an object that represents a key, value pair for use in passing
 data between functions in ``ccdproc``. The value is an astropy.units.Quantity,
 with the unit specified explicitly when the Keyword instance is created.
-The key is case-insensitive, and synonyms can be supplied that will be used
-to look for the value in CCDData.meta.
+The key is case-insensitive.
 '''
-key = ccdproc.Keyword('exposure', unit=u.sec, synonyms=['exptime'])
+key = ccdproc.Keyword('exposure', unit=u.sec)
 header = fits.Header()
 header['exposure'] = 15.0
 # value matched  by keyword name exposure
-value = key(header)
+value = key.value_from(header)
 assert value == 15 * u.sec
-del header['exposure']
-header['exptime'] = 15.0
-# value matched by synonym exptime
-value = key(header)
-assert value == 15 * u.sec
-# inconsistent values in the header raise an error:
-header['exposure'] = 25.0
-value = key(header)  # raises ValueError
 
 # the value of a Keyword can also be set directly:
 key.value = 20 * u.sec
 
-# String values are accommodated by setting the unit to the python type str:
+# String values are accommodated by not setting the unit and setting the value
+# to a string
 
-string_key = ccdproc.Keyword('filter', unit=str)
+string_key = ccdproc.Keyword('filter')
 string_key.value = 'V'
+
+# Setting a string value when a unit has been specified is an error
+
+bad_key = ccdproc.Keyword('exposure', unit=u.sec)
+bad_key.value = '30'  # raise a ValueError
 
 '''
 Combiner is an object to facilitate image combination. Its methods perform
@@ -158,7 +209,25 @@ It is discussed in detail below, in the section "Image combination"
 #and a unit?  Or a scalar, unit and an error?   ie, This
 #could actually be handled by the gain and readnoise being
 #specified as an NDData object
-ccddata = ccdproc.createvariance(ccddata, gain=1.0, readnoise=5.0)
+
+ccddata.unit = u.adu
+# The call below should raise an error because gain and readnoise are provided
+# without units.
+ccddata = ccdproc.create_variance(ccddata, gain=1.0, readnoise=5.0)
+
+# The electron unit is provided by ccddata
+gain = 1.0 ccddata.electron / u.adu
+readnoise = 5.0 * u.electron
+# This succeeds because the units are consistent
+ccddata = ccdproc.create_variance(ccddata, gain=gain, readnoise=readnoise)
+
+# with the gain units below there is a mismatch between the units of the
+# image after scaling by the gain and the units of the readnoise...
+gain = 1.0 u.photon / u.adu
+
+# ...so this should fail with an error.
+ccddata = ccdproc.create_variance(ccddata, gain=gain, readnoise=readnoise)
+
 
 #Overscan subtract the data
 #Should be able to provide the meta data for
