@@ -414,23 +414,15 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias,
 #    below under "Helper Function"
 
 # The combination process begins with the creation of a Combiner object,
-# initialized with the images to be combined
+# initialized with a list of the images to be combined
 
-combine = ccdproc.Combiner(ccddata1, ccddata2, ccddata3)
-
-# 3. 
-#   Masking: ccdpro.CCDData objects are already masked arrays, allowing
-#   automatic exclusion of masked pixels from all operations.
-#
-#   Threshold rejection of all pixels with data value over 30000 or under -100:
-
-combine.threshold_reject(max=30000, min=-100)
+combine = ccdproc.Combiner([ccddata1, ccddata2, ccddata3])
 
 #   automatic rejection by min/max, sigmaclip, ccdclip, etc. provided through
 #   one method, with different helper functions
 
 # min/max
-combine.clip(method=ccdproc.minmax)
+combine.clip(method=ccdproc.minmax, max_data=30000, data_min=-100)
 
 # sigmaclip (relies on astropy.stats.funcs)
 combine.clip(method=sigma_clip,
@@ -449,7 +441,6 @@ combine.clip(method=ccdproc.ccdclip,
 # 4. Image scaling/zero offset with scaling determined by the mode of each
 #    image and the offset by the median. This method calculates what are
 #    effectively weights for each image
-
 combine.calc_weights(scale_by=np.mode, offset_by=np.median)
 
 # 5. The actual combination -- a couple of ways images can be combined
@@ -458,8 +449,9 @@ combine.calc_weights(scale_by=np.mode, offset_by=np.median)
 # rejection, clipping, etc, are wrapped into a single mask for each image
 combined_image = combine(method=np.ma.median)
 
-# average; in this case image weights can also be specified
-combined_image = combine(method=np.ma.mean, weights=[0.5, 1, 2])
+# average; in this case image weights can also be specified if they 
+# have been 
+combined_image = combine(method=np.ma.mean)
 
 # ================
 # Helper Functions
