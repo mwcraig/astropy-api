@@ -157,6 +157,9 @@ assert ccddata2.flag is None  # even though we set ccddata.flag before saving
 # and metadata
 hdu = ccddata.to_hdu()
 
+# CCDData has a copy method for convenience:
+ccddata_copy = ccddata.copy()
+
 '''
 Keyword is an object that represents a key, value pair for use in passing
 data between functions in ``ccdproc``. The value is an astropy.units.Quantity,
@@ -257,12 +260,11 @@ ccddata = ccdproc.subtract_bias(ccddata, masterbias)
 #         in the second case the exposure time will be extracted from the
 #         metadata for each image.
 masterdark = ccdproc.CCDData(np.zeros(100, 100))
-masterdark.meta['exptime'] = 30.0
+masterdark.meta['exposure'] = 30.0
 ccddata.meta['EXPOSURE'] = 15.0
 
 exposure_time_key = ccdproc.Keyword('exposure',
-                                    unit=u.sec,
-                                    synonyms=['exptime'])
+                                    unit=u.sec)
 
 # explicitly specify exposure times
 ccddata = ccdproc.subtract_dark(ccddata, masterdark,
